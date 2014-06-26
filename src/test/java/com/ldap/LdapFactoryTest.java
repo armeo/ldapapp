@@ -38,4 +38,13 @@ public class LdapFactoryTest {
 
         assertThat(ldap.getEmail(user), is("orcl@mail.com"));
     }
+
+    @Test
+    public void shouldReturnEmptyStringWhenUserNotExists(){
+        String user = "cn=notexist";
+        String password = "OID#dm1n";
+        LdapFactory ldap = new LdapFactory(user, password);
+
+        assertThat(ldap.getEmail(user), is("orcl@mail.com"));
+    }
 }

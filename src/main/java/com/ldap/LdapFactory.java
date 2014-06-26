@@ -1,7 +1,7 @@
 package com.ldap;
 
 import javax.naming.Context;
-import javax.naming.NamingException;
+import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
 import java.util.Hashtable;
@@ -29,12 +29,21 @@ public class LdapFactory {
         try {
             return new InitialDirContext(env);
         } catch (Exception e) {
-            e.printStackTrace(System.out);
+            System.out.println(e.getMessage());
             return null;
         }
     }
 
     public String getEmail(String user) {
-        return "orcl@mail.com";
+        DirContext dirContext = getConnection();
+        String searchUser = user + ",cn=Users,dc=fico,dc=com";
+        try {
+            Attributes attr = dirContext.getAttributes(searchUser, new String[]{"mail"});
+
+            return attr.get("mail").get().toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
+        }
     }
 }
