@@ -23,7 +23,7 @@ public class LdapFactory {
         Hashtable<Object, Object> env = new Hashtable<Object, Object>();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
         env.put(Context.PROVIDER_URL, "ldap://oid.fico.com:3060");
-        env.put(Context.SECURITY_PRINCIPAL, this.principal);
+        env.put(Context.SECURITY_PRINCIPAL, String.format("cn=%s", this.principal));
         env.put(Context.SECURITY_CREDENTIALS, this.credential);
 
         try {
@@ -36,13 +36,15 @@ public class LdapFactory {
 
     public String getEmail(String user) {
         DirContext dirContext = getConnection();
-        String searchUser = user + ",cn=Users,dc=fico,dc=com";
+        StringBuilder searchUser = new StringBuilder("cn=");
+        searchUser.append(user);
+        searchUser.append(",cn=Users,dc=fico,dc=com");
         try {
-            Attributes attr = dirContext.getAttributes(searchUser, new String[]{"mail"});
+            Attributes attr = dirContext.getAttributes(searchUser.toString(), new String[]{"mail"});
 
             return attr.get("mail").get().toString();
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
             return "";
         }
     }
