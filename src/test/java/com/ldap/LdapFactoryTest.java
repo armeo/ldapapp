@@ -1,5 +1,6 @@
 package com.ldap;
 
+import org.junit.Before;
 import org.junit.Test;
 
 import javax.naming.NamingException;
@@ -12,39 +13,33 @@ import static org.junit.Assert.assertThat;
  */
 public class LdapFactoryTest {
 
+    private LdapFactory ldap;
+
+    @Before
+    public void setUp(){
+        String user = "cn=orcladmin";
+        String password = "OID#dm1n";
+        ldap = new LdapFactory(user, password);
+    }
+
     @Test
     public void shouldNullWithWrongUsernamePassword() throws NamingException {
-        String user = "aaa";
-        String password = "xxx";
-        LdapFactory ldap = new LdapFactory(user, password);
-
+        ldap = new LdapFactory("xxx", "xxx");
         assertThat(ldap.getConnection(), is(nullValue()));
     }
 
     @Test
     public void shouldNotNullWithRightUsernamePassword() throws NamingException {
-        String user = "cn=orcladmin";
-        String password = "OID#dm1n";
-        LdapFactory ldap = new LdapFactory(user, password);
-
         assertThat(ldap.getConnection(), is(notNullValue()));
     }
 
     @Test
     public void shouldReturnEmailWhenUserExists(){
-        String user = "cn=orcladmin";
-        String password = "OID#dm1n";
-        LdapFactory ldap = new LdapFactory(user, password);
-
-        assertThat(ldap.getEmail(user), is("orcl@mail.com"));
+        assertThat(ldap.getEmail("cn=orcladmin"), is("orcl@mail.com"));
     }
 
     @Test
     public void shouldReturnEmptyStringWhenUserNotExists(){
-        String user = "cn=notexist";
-        String password = "OID#dm1n";
-        LdapFactory ldap = new LdapFactory(user, password);
-
-        assertThat(ldap.getEmail(user), is("orcl@mail.com"));
+        assertThat(ldap.getEmail("notexist"), is("orcl@mail.com"));
     }
 }
