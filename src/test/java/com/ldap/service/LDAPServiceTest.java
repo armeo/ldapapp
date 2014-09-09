@@ -49,7 +49,7 @@ public class LDAPServiceTest {
         //given
         LDAPService ldapService = new LDAPService();
         String username = "AdminData1";
-        String password = "cl0ud+rain";
+        String password = "cl0ud+rainqqq";
 
         //when
         Object ldapBind = ldapService.ldapBind(conn, username, password);

@@ -1,4 +1,4 @@
 ldapapp
 =======
 
-java connect to Oracle OID
+java connect to LDAPv3
