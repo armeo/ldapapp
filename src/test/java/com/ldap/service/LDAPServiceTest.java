@@ -25,6 +25,7 @@ public class LDAPServiceTest {
     public void setUp() throws LDAPException, LDIFException {
         InMemoryDirectoryServerConfig config = new InMemoryDirectoryServerConfig("dc=fico,dc=com");
         config.addAdditionalBindCredentials("cn=Directory Manager", "password");
+        config.addAdditionalBindCredentials("cn=admin,cn=administrators,cn=dscc", "Odsee#dm1n");
         config.setSchema(null);
 
         server = new InMemoryDirectoryServer(config);
@@ -45,7 +46,7 @@ public class LDAPServiceTest {
     }
 
     @Test
-    public void shouldBeTrueWhenLDAPAuthenticationSuccessfully() {
+     public void shouldBeTrueWhenLDAPAuthenticationSuccessfully() {
         String username = "AdminData1";
         String password = "cl0ud+rain";
 
@@ -58,5 +59,21 @@ public class LDAPServiceTest {
         String password = "worng";
 
         assertThat(ldapService.haveLDAPAuthentication(username, password), is(false));
+    }
+
+    @Test
+    public void shouldBeTrueWhenUserAccountIsActive() throws LDAPException {
+        String username = "AdminData1";
+
+        assertThat(ldapService.isAccountActivate(username), is(true));
+    }
+
+    @Test
+    public void shouldBeFalseWhenUserAccountIsInactive() throws LDAPException, LDIFException {
+        String username = "AdminData1";
+
+        ldapService.inactivateAccount(username);
+
+        assertThat(ldapService.isAccountActivate(username), is(false));
     }
 }

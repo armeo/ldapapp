@@ -33,14 +33,6 @@ public class LDAPService {
         this.parentDN = parentDN;
     }
 
-    public String getParentDN() {
-        return parentDN;
-    }
-
-    public void setParentDN(String parentDN) {
-        this.parentDN = parentDN;
-    }
-
     public void setLdapConnection(LDAPConnection ldapConnection) {
         this.ldapConnection = ldapConnection;
     }
