@@ -18,58 +18,85 @@ import java.util.Date;
 public class LDAPService {
 
     public static final Date INFINITY_TIME = new Date(Long.MAX_VALUE);
+    private LDAPConnection ldapConnection;
+    private String parentDN;
 
-    public void setPwdMaxAge(LDAPConnection ldapConnection, String username, String parentDN) throws LDIFException, LDAPException {
-        Modification modification = new Modification(ModificationType.ADD, "pwdMaxAge", "7776000");
-        ldapModify(ldapConnection, username, parentDN, modification);
+    public LDAPService() {
     }
 
-    public void inactivateAccount(LDAPConnection ldapConnection, String username, String parentDN) throws LDIFException, LDAPException {
+    public LDAPService(String parentDN) {
+        this.parentDN = parentDN;
+    }
+
+    public LDAPService(LDAPConnection ldapConnection, String parentDN) {
+        this.ldapConnection = ldapConnection;
+        this.parentDN = parentDN;
+    }
+
+    public String getParentDN() {
+        return parentDN;
+    }
+
+    public void setParentDN(String parentDN) {
+        this.parentDN = parentDN;
+    }
+
+    public void setLdapConnection(LDAPConnection ldapConnection) {
+        this.ldapConnection = ldapConnection;
+    }
+
+    public void setPwdMaxAge(String username) throws LDIFException, LDAPException {
+        Modification modification = new Modification(ModificationType.ADD, "pwdMaxAge", "7776000");
+        ldapModify(username, modification);
+    }
+
+    public void inactivateAccount(String username) throws LDIFException, LDAPException {
         Modification modification = new Modification(ModificationType.ADD, "nsroledn", String.format("cn=nsManagedDisabledRole,%s", parentDN));
-        ldapModify(ldapConnection, username, parentDN, modification);
+        ldapModify(username, modification);
 
         modification = new Modification(ModificationType.ADD, "nsaccountlock", "true");
-        ldapModify(ldapConnection, username, parentDN, modification);
+        ldapModify(username, modification);
     }
 
-    public void activateAccount(LDAPConnection ldapConnection, String username, String parentDN) throws LDIFException, LDAPException {
+    public void activateAccount(String username) throws LDIFException, LDAPException {
         Modification modification = new Modification(ModificationType.DELETE, "nsroledn");
-        ldapModify(ldapConnection, username, parentDN, modification);
+        ldapModify(username, modification);
 
         modification = new Modification(ModificationType.DELETE, "nsaccountlock");
-        ldapModify(ldapConnection, username, parentDN, modification);
+        ldapModify(username, modification);
     }
 
-    public void updateUserPassword(LDAPConnection ldapConnection, String username, String password, String parentDN) throws LDIFException, LDAPException {
+    public void updateUserPassword(String username, String password) throws LDIFException, LDAPException {
         Modification modification = new Modification(ModificationType.REPLACE, "userpassword", password);
-        ldapModify(ldapConnection, username, parentDN, modification);
+        ldapModify(username, modification);
     }
 
-    public String currentUserStatus(LDAPConnection ldapConnection, String username, String parentDN) throws LDAPException {
-        if (isAccountLocked(ldapConnection, username, parentDN)) {
+    public String currentUserStatus(String username) throws LDAPException {
+        if (isAccountLocked(username)) {
             return "Locked";
         } else {
-            return ldapSearch(ldapConnection, parentDN, SearchScope.SUB, String.format("(uid=%s)", username), "nsaccountlock") != null ? "Inactive" : "Active";
+            return ldapSearch(SearchScope.SUB, String.format("(uid=%s)", username), "nsaccountlock") != null ? "Inactive" : "Active";
         }
     }
 
-    public boolean isAccountLocked(LDAPConnection ldapConnection, String username, String parentDN) throws LDAPException {
-        return ldapSearchBoolean(ldapConnection, parentDN, SearchScope.SUB, String.format("(uid=%s)", username), "accountunlocktime");
+    public boolean isAccountLocked(String username) throws LDAPException {
+        return ldapSearchBoolean(SearchScope.SUB, String.format("(uid=%s)", username), "accountunlocktime");
     }
 
-    public boolean isAccountActivate(LDAPConnection ldapConnection, String username, String parentDN) throws LDAPException {
-        return !ldapSearchBoolean(ldapConnection, parentDN, SearchScope.SUB, String.format("(uid=%s)", username), "nsaccountlock");
+    public boolean isAccountActivate(String username) throws LDAPException {
+        return !ldapSearchBoolean(SearchScope.SUB, String.format("(uid=%s)", username), "nsaccountlock");
     }
 
-    public Date getUserAccountExpirationDate(LDAPConnection ldapConnection, String username, String parentDN) {
+    public Date getUserAccountExpirationDate(String username) {
         try {
             int dayInSeconds = 86400;
-            Date userCreateDate = ldapSearchDate(ldapConnection, parentDN, SearchScope.SUB, String.format("(uid=%s)", username), "pwdchangedtime");
-            String userPasswordPolicy = ldapSearchString(ldapConnection, parentDN, SearchScope.SUB, String.format("(uid=%s)", username), "passwordpolicysubentry");
+            Date userCreateDate = ldapSearchDate(SearchScope.SUB, String.format("(uid=%s)", username), "pwdchangedtime");
+            String userPasswordPolicy = ldapSearchString(SearchScope.SUB, String.format("(uid=%s)", username), "passwordpolicysubentry");
             userPasswordPolicy = userPasswordPolicy != null ? userPasswordPolicy : "cn=Password Policy,cn=config";
+            this.parentDN = userPasswordPolicy;
 
             ldapConnection.bind("cn=admin,cn=administrators,cn=dscc", "Odsee#dm1n");
-            Integer pwdMaxAge = ldapSearchInteger(ldapConnection, userPasswordPolicy, SearchScope.BASE, "(objectclass=*)", "pwdMaxAge");
+            Integer pwdMaxAge = ldapSearchInteger(SearchScope.BASE, "(objectclass=*)", "pwdMaxAge");
 
             if (pwdMaxAge == 0) {
                 return INFINITY_TIME;
@@ -85,7 +112,11 @@ public class LDAPService {
         return null;
     }
 
-    public BindResult ldapBind(LDAPConnection ldapConnection, String username, String password) {
+    public boolean haveLDAPAuthentication(String username, String password){
+        return ldapBind(username, password) != null ? true : false;
+    }
+
+    private BindResult ldapBind(String username, String password) {
         try {
             return ldapConnection.bind(String.format("uid=%s,ou=people,dc=fico,dc=com", username), password);
         } catch (LDAPException le) {
@@ -94,33 +125,33 @@ public class LDAPService {
         }
     }
 
-    private String ldapSearchString(LDAPConnection ldapConnection, String parentDN, SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
-        SearchResultEntry entry = ldapSearch(ldapConnection, parentDN, searchScope, searchFilter, searchAttribute);
+    private String ldapSearchString(SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
+        SearchResultEntry entry = ldapSearch(searchScope, searchFilter, searchAttribute);
         return (entry != null) ? entry.getAttributeValue(searchAttribute) : null;
     }
 
-    private Integer ldapSearchInteger(LDAPConnection ldapConnection, String parentDN, SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
-        SearchResultEntry entry = ldapSearch(ldapConnection, parentDN, searchScope, searchFilter, searchAttribute);
+    private Integer ldapSearchInteger(SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
+        SearchResultEntry entry = ldapSearch(searchScope, searchFilter, searchAttribute);
         return (entry != null) ? entry.getAttributeValueAsInteger(searchAttribute) : null;
     }
 
-    private Date ldapSearchDate(LDAPConnection ldapConnection, String parentDN, SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
-        SearchResultEntry entry = ldapSearch(ldapConnection, parentDN, searchScope, searchFilter, searchAttribute);
+    private Date ldapSearchDate(SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
+        SearchResultEntry entry = ldapSearch(searchScope, searchFilter, searchAttribute);
         return (entry != null) ? entry.getAttributeValueAsDate(searchAttribute) : null;
     }
 
-    private Boolean ldapSearchBoolean(LDAPConnection ldapConnection, String parentDN, SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
-        SearchResultEntry entry = ldapSearch(ldapConnection, parentDN, searchScope, searchFilter, searchAttribute);
+    private Boolean ldapSearchBoolean(SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
+        SearchResultEntry entry = ldapSearch(searchScope, searchFilter, searchAttribute);
         return (entry != null) ? entry.getAttributeValueAsBoolean(searchAttribute) : false;
     }
 
-    private SearchResultEntry ldapSearch(LDAPConnection ldapConnection, String parentDN, SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
+    private SearchResultEntry ldapSearch(SearchScope searchScope, String searchFilter, String searchAttribute) throws LDAPSearchException {
         SearchResult searchResults = ldapConnection.search(parentDN, searchScope, searchFilter, searchAttribute);
         return (searchResults != null && searchResults.getEntryCount() > 0 && searchResults.getSearchEntries().get(0).hasAttribute(searchAttribute)) ? searchResults.getSearchEntries().get(0) : null;
     }
 
-    private LDAPResult ldapModify(LDAPConnection ldapConnection, String username, String parentDN, Modification modification) throws LDAPException {
-        BindResult bindResult = ldapConnection.bind("cn=admin,cn=administrators,cn=dscc", "Odsee#dm1n");
+    private LDAPResult ldapModify(String username, Modification modification) throws LDAPException {
+        ldapConnection.bind("cn=admin,cn=administrators,cn=dscc", "Odsee#dm1n");
         LDAPResult ldapResult = ldapConnection.modify(String.format("uid=%s,%s", username, parentDN), modification);
 
         return ldapResult;

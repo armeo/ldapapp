@@ -10,7 +10,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
 /**
@@ -20,6 +19,7 @@ public class LDAPServiceTest {
 
     private InMemoryDirectoryServer server;
     private LDAPConnection conn;
+    private LDAPService ldapService;
 
     @Before
     public void setUp() throws LDAPException, LDIFException {
@@ -35,7 +35,7 @@ public class LDAPServiceTest {
         server.add("dn: uid=AdminData1,ou=people,dc=fico,dc=com", "objectclass: top", "objectclass: ficoUser", "uid: AdminData1", "userPassword: cl0ud+rain", "mail: admin@fico.com", "cn: First Last", "givenname: First", "sn: Last");
 
         conn = server.getConnection();
-        System.out.println(conn.getSchema().getSchemaEntry().toLDIFString());
+        ldapService = new LDAPService(conn, "ou=people,dc=fico,dc=com");
     }
 
     @After
@@ -45,16 +45,18 @@ public class LDAPServiceTest {
     }
 
     @Test
-    public void shouldNotNullWhenLDAPBindSuccessfully() {
-        //given
-        LDAPService ldapService = new LDAPService();
+    public void shouldBeTrueWhenLDAPAuthenticationSuccessfully() {
         String username = "AdminData1";
-        String password = "cl0ud+rainqqq";
+        String password = "cl0ud+rain";
 
-        //when
-        Object ldapBind = ldapService.ldapBind(conn, username, password);
+        assertThat(ldapService.haveLDAPAuthentication(username, password), is(true));
+    }
 
-        //then
-        assertThat(ldapBind, is(notNullValue()));
+    @Test
+    public void shouldBeFalseWhenLDAPAuthenticationFailure() {
+        String username = "AdminData2";
+        String password = "worng";
+
+        assertThat(ldapService.haveLDAPAuthentication(username, password), is(false));
     }
 }
